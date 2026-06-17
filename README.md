@@ -11,6 +11,22 @@ A Docker setup to mount your [TorBox](https://torbox.app/) library as a virtual 
 - Automatic organization into `movies/` and `series/` folders
 - FUSE virtual filesystem for Plex, or STRM files for Jellyfin/Emby
 
+## One-line install (Ubuntu + CasaOS)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/killamfkr/zurg-testing/main/install.sh | sudo TORBOX_API_KEY=your_api_key_here bash
+```
+
+Replace `your_api_key_here` with your key from [torbox.app/settings](https://torbox.app/settings).
+
+The script installs TorBox Media Center under `/DATA/AppData/torbox-media-center` and mounts media at `/DATA/Media/torbox` (CasaOS defaults). Point Plex at `/DATA/Media/torbox/movies` and `/DATA/Media/torbox/series`.
+
+To install CasaOS first if it is missing:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/killamfkr/zurg-testing/main/install.sh | sudo INSTALL_CASAOS=1 TORBOX_API_KEY=your_api_key_here bash
+```
+
 ## Quick start with Docker (Plex)
 
 1. Clone this repo
@@ -30,7 +46,7 @@ All settings live in `.env`. See `.env.example` for the available options.
 | `TORBOX_API_KEY` | Your TorBox API key (required) | — |
 | `MOUNT_METHOD` | `fuse` for Plex/VLC/Infuse, `strm` for Jellyfin/Emby | `fuse` |
 | `MOUNT_PATH` | Path inside the container | `/torbox` |
-| `MOUNT_HOST_PATH` | Host path exposed to Plex | `/mnt/torbox` |
+| `MOUNT_HOST_PATH` | Host path exposed to Plex | `/DATA/Media/torbox` on CasaOS, `/mnt/torbox` otherwise |
 | `ENABLE_METADATA` | Organize files into movies/series folders | `true` |
 | `MOUNT_REFRESH_TIME` | Refresh interval: `slowest` (24h) to `instant` (6min) | `fast` (2h) |
 
@@ -55,11 +71,13 @@ For manual partial scans of specific folders, use `scripts/plex_update.sh`.
 
 ## Plex Docker volume mapping
 
-If Plex runs in Docker, map the **host** mount path into the Plex container:
+If Plex runs in Docker on CasaOS, map the host mount path into the Plex container:
 
 ```bash
--v /mnt/torbox:/torbox-media-center
+-v /DATA/Media/torbox:/torbox-media-center
 ```
+
+On a standard Linux install, use `/mnt/torbox` instead.
 
 Then add Plex libraries pointing to `/torbox-media-center/movies` and `/torbox-media-center/series`.
 
