@@ -1,89 +1,108 @@
-# zurg
+# TorBox Media Center + Plex
 
-A self-hosted Real-Debrid webdav server written from scratch. Together with [rclone](https://rclone.org/) it can mount your Real-Debrid torrent library into your file system like Dropbox. It's meant to be used with Infuse (webdav server) and Plex (mount zurg webdav with rclone).
+A Docker setup to mount your [TorBox](https://torbox.app/) library as a virtual filesystem for Plex, Jellyfin, Emby, Infuse, and other media players. This replaces the previous Real-Debrid + zurg + rclone stack with [TorBox Media Center](https://github.com/torbox-app/torbox-media-center), TorBox's official mounting solution.
 
-## Download
+## Why TorBox Media Center instead of zurg?
 
-[Release Cycle](https://github.com/debridmediamanager/zurg-testing/wiki/Release-cycle)
+[zurg](https://github.com/debridmediamanager/zurg-testing) is built specifically for Real-Debrid and does not support TorBox. TorBox Media Center is the official alternative and provides:
 
-### Latest version: v0.10.0-rc.4-1 (Sponsors only)
+- Native TorBox support (torrents, usenet, and web downloads)
+- No rclone or custom WebDAV server required
+- Automatic organization into `movies/` and `series/` folders
+- FUSE virtual filesystem for Plex, or STRM files for Jellyfin/Emby
 
-[Download the binary](https://github.com/debridmediamanager/zurg/releases) or use docker
+## Quick start with Docker (Plex)
 
-Instructions on [HOW TO PULL THE PRIVATE DOCKER IMAGE](https://www.patreon.com/posts/guide-to-pulling-105779285)
+1. Clone this repo
+2. Copy `.env.example` to `.env` and add your TorBox API key from [torbox.app/settings](https://torbox.app/settings)
+3. Create the mount directory: `sudo mkdir -p /mnt/torbox`
+4. Start the stack: `docker compose up -d`
+5. Point Plex at `/mnt/torbox/movies` and `/mnt/torbox/series`
 
-Also the [CONFIG guide for v0.10](https://github.com/debridmediamanager/zurg-testing/wiki/Config-v0.10)
+Your media appears at `/mnt/torbox` on the host. If you change `.env`, restart with `docker compose restart torbox-media-center`.
 
-```sh
-docker pull ghcr.io/debridmediamanager/zurg:latest
-# or
-docker pull ghcr.io/debridmediamanager/zurg:v0.10.0-rc.4-1
+## Configuration
+
+All settings live in `.env`. See `.env.example` for the available options.
+
+| Variable | Description | Default |
+| --- | --- | --- |
+| `TORBOX_API_KEY` | Your TorBox API key (required) | — |
+| `MOUNT_METHOD` | `fuse` for Plex/VLC/Infuse, `strm` for Jellyfin/Emby | `fuse` |
+| `MOUNT_PATH` | Path inside the container | `/torbox` |
+| `MOUNT_HOST_PATH` | Host path exposed to Plex | `/mnt/torbox` |
+| `ENABLE_METADATA` | Organize files into movies/series folders | `true` |
+| `MOUNT_REFRESH_TIME` | Refresh interval: `slowest` (24h) to `instant` (6min) | `fast` (2h) |
+
+### FUSE vs STRM
+
+- **FUSE** (default): Mounts virtual files directly. Use this for Plex on Linux.
+- **STRM**: Creates small `.strm` pointer files. Use this for Jellyfin, Emby, or Windows.
+
+For FUSE on Docker, the compose file already sets the required `SYS_ADMIN` capability and `/dev/fuse` device mapping.
+
+## Plex library updates
+
+Unlike zurg, TorBox Media Center does not trigger scripts when your library changes. Instead:
+
+1. Set `MOUNT_REFRESH_TIME` in `.env` to control how often new downloads appear
+2. Enable **Scan my library automatically** in Plex settings
+3. Optionally run `scripts/plex_scan_all.sh` on a cron schedule to force Plex scans after each refresh
+
+Edit `scripts/plex_scan_all.sh` with your Plex URL and token before using it.
+
+For manual partial scans of specific folders, use `scripts/plex_update.sh`.
+
+## Plex Docker volume mapping
+
+If Plex runs in Docker, map the **host** mount path into the Plex container:
+
+```bash
+-v /mnt/torbox:/torbox-media-center
 ```
 
-### Stable version: v0.9.3-final (Public)
+Then add Plex libraries pointing to `/torbox-media-center/movies` and `/torbox-media-center/series`.
 
-[Download the binary](https://github.com/debridmediamanager/zurg-testing/releases) or use docker
+## Systemd (optional)
 
-```sh
-docker pull ghcr.io/debridmediamanager/zurg-testing:latest
-# or
-docker pull ghcr.io/debridmediamanager/zurg-testing:v0.9.3-final
+To start the stack on boot:
+
+```bash
+sudo cp lib/systemd/system/torbox-media-center.service /etc/systemd/system/
+# Edit WorkingDirectory in the unit file to match where you cloned this repo
+sudo systemctl daemon-reload
+sudo systemctl enable --now torbox-media-center
 ```
 
-## How to run zurg in 5 steps for Plex with Docker
+## Migrating from Real-Debrid + zurg
 
-1. Clone the repo `git clone https://github.com/debridmediamanager/zurg-testing.git` or `git clone https://github.com/debridmediamanager/zurg.git`
-2. Add your token in `config.yml`
-3. `sudo mkdir -p /mnt/zurg`
-4. Run `docker compose up -d`
-5. `time ls -1R /mnt/zurg` You're done! If you do edits on your config.yml just do `docker compose restart zurg`.
+| Old (zurg) | New (TorBox) |
+| --- | --- |
+| `config.yml` with RD token | `.env` with `TORBOX_API_KEY` |
+| zurg WebDAV + rclone mount | TorBox Media Center FUSE mount |
+| `/mnt/zurg` | `/mnt/torbox` |
+| Custom directory filters in `config.yml` | Automatic `movies/` and `series/` via metadata |
+| `on_library_update` hook | Scheduled Plex scans or automatic Plex scanning |
 
-A web server is now running at `localhost:9999`.
+## Troubleshooting
 
-### Note: when using zurg in a server outside of your home network, ensure that "Use my Remote Traffic automatically when needed" is unchecked on your [Account page](https://real-debrid.com/account)
+Check container logs:
 
-## Command-line utility
-
-```
-Usage:
-  zurg [flags]
-  zurg [command]
-
-Available Commands:
-  clear-downloads Clear all downloads (unrestricted links) in your account
-  clear-torrents  Clear all torrents in your account
-  completion      Generate the autocompletion script for the specified shell
-  help            Help about any command
-  network-test    Run a network test
-  version         Prints zurg's current version
-
-Flags:
-  -c, --config string   config file path (default "./config.yml")
-  -h, --help            help for zurg
-
-Use "zurg [command] --help" for more information about a command.
+```bash
+docker logs -f torbox-media-center
 ```
 
-## Why zurg? Why not X?
+If the FUSE mount fails, verify your host supports FUSE and that Docker has `SYS_ADMIN` and `/dev/fuse` access (already configured in `docker-compose.yml`).
 
-- Better performance than anything out there; changes in your library appear instantly ([assuming Plex picks it up fast enough](./plex_update.sh))
-- You can configure a flexible directory structure in `config.yml`; you can select individual torrents that should appear on a directory by the ID you see in [DMM](https://debridmediamanager.com/). [Need help?](https://github.com/debridmediamanager/zurg-testing/wiki/Config)
-- If you've ever experienced Plex scanner being stuck on a file and thereby freezing Plex completely, it should not happen anymore because zurg does a comprehensive check if a torrent is dead or not. You can run `ps aux --sort=-time | grep "Plex Media Scanner"` to check for stuck scanner processes.
-- zurg guarantees that your library is **always available** because of its repair abilities!
+Force an immediate library refresh:
 
-## Guides
+```bash
+docker compose restart torbox-media-center
+```
 
-- [@I-am-PUID-0](https://github.com/I-am-PUID-0) - [pd_zurg](https://github.com/I-am-PUID-0/pd_zurg)
-- [@Pukabyte](https://github.com/Pukabyte) - [Guide: Zurg + RDT + Prowlarr + Arrs + Petio + Autoscan + Plex + Scannarr](https://puksthepirate.notion.site/Guide-Zurg-RDT-Prowlarr-Arrs-Petio-Autoscan-Plex-Scannarr-eebe27d130fa400c8a0536cab9d46eb3)
-- [u/pg988](https://www.reddit.com/user/pg988/) - [Windows + zurg + Plex guide](https://www.reddit.com/r/RealDebrid/comments/18so926/windows_zurg_plex_guide/)
-- [@ignamiranda](https://github.com/ignamiranda) - [Plex Debrid Zurg Windows Guide](https://github.com/ignamiranda/plex_debrid_zurg_scripts/)
-- [@funkypenguin](https://github.com/funkypenguin) - ["Infinite streaming" from Real Debrid with Plex](https://elfhosted.com/guides/media/stream-from-real-debrid-with-plex/) (ElfHosted)
-- [u/TimeyWimeyInsaan](https://www.reddit.com/user/TimeyWimeyInsaan/) - [A Newbie guide for Plex+Real-Debrid using Zurg & Rclone](https://docs.google.com/document/d/114URAz5h5jarpo1xz4GyFUzRzoBnOKVQPxH0-2R5KC8/view)
+## Links
 
-## Service Providers
-
-- [ElfHosted](https://elfhosted.com) - Easy, [open source](https://elfhosted.com/open/), Kubernetes / GitOps driven hosting of popular self-hosted apps - tested, tightly integrated, and secured. Apps start at $0.05/day, and new accounts get $10 credit, no commitment.
-
-## Please read our [wiki](https://github.com/debridmediamanager/zurg-testing/wiki) for more information!
-
-## [zurg's version history](https://github.com/debridmediamanager/zurg-testing/wiki/History)
+- [TorBox Media Center docs](https://torbox-app-torbox-media-center.mintlify.app/)
+- [TorBox API docs](https://api.torbox.app/)
+- [Plex setup guide](https://torbox-app-torbox-media-center.mintlify.app/guides/plex)
+- [Jellyfin/Emby setup guide](https://torbox-app-torbox-media-center.mintlify.app/guides/jellyfin-emby)

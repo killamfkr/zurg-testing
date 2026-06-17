@@ -4,7 +4,8 @@ Add-Type -AssemblyName System.Web
 $plexUrl = "http://plex-ip:32400"
 $plexToken = "your-plex-token"
  
-# Replace with your mount - EDIT BELOW
+# Replace with your TorBox mount - EDIT BELOW
+# For STRM mode on Windows, this is typically where TorBox Media Center writes files.
 $mount = "Z:"
  
 $path = $args[2]
@@ -18,7 +19,7 @@ function UrlEncode($value) {
 }
  
 # Example path to a log - EDIT BELOW
-Start-Transcript -Path "C:\Path\To\zurg-testing\logs\plex_update.log"
+Start-Transcript -Path "C:\Path\To\torbox-media-center\logs\plex_update.log"
  
 # Function to trigger library update for a specific folder
 function UpdateFolder($retries) {
@@ -125,7 +126,7 @@ function UpdateFoldersWithinLast5Minutes($directories, $retries) {
 }
  
 # Example usage - REPLACE WITH YOUR DIRECTORIES
-$directoriesToUpdate = @("Z:\movies","Z:\anime","Z:\shows","Z:\movies4k","Z:\shows4k")
+$directoriesToUpdate = @("Z:\movies","Z:\series")
  
 if ($args.length -gt 4) {
     Write-Host "Update within last 5 minutes"
