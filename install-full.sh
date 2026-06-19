@@ -28,6 +28,31 @@ apt_safe_install() {
     || die "Failed to install packages: $*"
 }
 
+# nordicnode setup.sh sometimes writes colored log lines into .env on CasaOS terminals.
+sanitize_env_file() {
+  local env_file="$1"
+  [[ -f "$env_file" ]] || return 0
+  local tmp="${env_file}.sanitized"
+  sed 's/\x1b\[[0-9;]*[a-zA-Z]//g' "$env_file" | grep -E '^(#|[A-Z_][A-Z0-9_]*=)' >"$tmp" || true
+  if [[ ! -s "$tmp" ]]; then
+    rm -f "$tmp"
+    die ".env is missing or unreadable at $env_file"
+  fi
+  mv "$tmp" "$env_file"
+  chmod 600 "$env_file"
+  chown "${REAL_USER}:${REAL_USER}" "$env_file" 2>/dev/null || true
+}
+
+start_stack() {
+  sanitize_env_file "${INSTALL_DIR}/.env"
+  if [[ -x "${INSTALL_DIR}/manage.sh" ]]; then
+    sudo -u "$REAL_USER" bash -c "cd '${INSTALL_DIR}' && ./manage.sh restart" \
+      || sudo -u "$REAL_USER" bash -c "cd '${INSTALL_DIR}' && docker compose --env-file .env up -d"
+  else
+    sudo -u "$REAL_USER" bash -c "cd '${INSTALL_DIR}' && docker compose --env-file .env up -d"
+  fi
+}
+
 if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
   die 'Run as root: curl -fsSL .../install-full.sh | sudo TORBOX_API_KEY=your_key bash'
 fi
@@ -92,31 +117,29 @@ chmod +x "$SRC_DIR/setup.sh"
 
 log "Running full stack setup (this takes several minutes)"
 set +e
-setup_output=$(sudo -u "$REAL_USER" env \
+sudo -u "$REAL_USER" env \
   TORBOX_API_KEY="${TORBOX_API_KEY}" \
   TORBOX_MEDIA_SERVER="${TORBOX_MEDIA_SERVER:-plex}" \
   TORBOX_PLEX_CLAIM="${TORBOX_PLEX_CLAIM:-}" \
   TORBOX_MOUNT_DIR="${MOUNT_DIR}" \
   TORBOX_START_SERVICES=true \
-  bash -c "cd '$SRC_DIR' && ./setup.sh --yes" 2>&1)
+  bash -c "cd '$SRC_DIR' && ./setup.sh --yes"
 setup_status=$?
 set -e
 if [[ $setup_status -ne 0 ]]; then
-  printf '%s\n' "$setup_output" | tail -30
-  die "setup.sh failed (exit $setup_status). See output above."
+  die "setup.sh failed (exit $setup_status)"
 fi
 
 [[ -f "$INSTALL_DIR/docker-compose.yml" ]] || die "Setup failed — $INSTALL_DIR/docker-compose.yml not found"
+
+log "Fixing .env and starting services"
+sanitize_env_file "${INSTALL_DIR}/.env"
 
 log "Opening services on LAN (CasaOS default)"
 sed -i -E 's/"127\.0\.0\.1:([0-9]+):\1"/"\1:\1"/g' "$INSTALL_DIR/docker-compose.yml"
 chown "$REAL_USER:$REAL_USER" "$INSTALL_DIR/docker-compose.yml"
 
-if [[ -x "$INSTALL_DIR/manage.sh" ]]; then
-  sudo -u "$REAL_USER" bash -c "cd '$INSTALL_DIR' && ./manage.sh restart"
-else
-  sudo -u "$REAL_USER" bash -c "cd '$INSTALL_DIR' && docker compose --env-file .env up -d"
-fi
+start_stack
 
 SERVER_IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
 SERVER_IP="${SERVER_IP:-localhost}"
