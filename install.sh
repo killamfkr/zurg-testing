@@ -74,6 +74,11 @@ cd "$APP_DIR"
 "${COMPOSE[@]}" pull
 "${COMPOSE[@]}" up -d
 
+sleep 5
+if ! docker ps --filter name=torbox-media-center --filter status=running -q | grep -q .; then
+  die "Container failed to start. Run: docker logs torbox-media-center"
+fi
+
 log "Installation complete"
 echo
 echo "Media mount: $MOUNT_HOST_PATH"
@@ -82,4 +87,7 @@ echo "Plex TV shows: $MOUNT_HOST_PATH/series  (only populated when ENABLE_METADA
 echo
 echo "Note: folders stay empty until you have playable videos cached in TorBox."
 echo "Force first sync:  cd $APP_DIR && ${COMPOSE[*]} restart"
-echo "Check logs:        cd $APP_DIR && ${COMPOSE[*]} logs -f"
+echo "Run diagnostics:   curl -fsSL $REPO_RAW/scripts/diagnose.sh | sudo bash"
+echo
+echo "Recent logs:"
+docker logs --tail 15 torbox-media-center 2>&1 | sed 's/^/  /'

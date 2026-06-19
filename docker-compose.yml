@@ -1,14 +1,20 @@
-version: '3.8'
-
 services:
   torbox-media-center:
     image: ghcr.io/torbox-app/torbox-media-center:latest
     container_name: torbox-media-center
     restart: unless-stopped
+    init: true
     stdin_open: true
     tty: true
     env_file:
       - .env
+    environment:
+      TORBOX_API_KEY: ${TORBOX_API_KEY}
+      MOUNT_METHOD: ${MOUNT_METHOD:-fuse}
+      MOUNT_PATH: ${MOUNT_PATH:-/torbox}
+      ENABLE_METADATA: ${ENABLE_METADATA:-false}
+      RAW_MODE: ${RAW_MODE:-false}
+      MOUNT_REFRESH_TIME: ${MOUNT_REFRESH_TIME:-normal}
     volumes:
       - ${MOUNT_HOST_PATH:-/mnt/torbox}:/torbox:rshared
     devices:

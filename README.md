@@ -125,7 +125,13 @@ Common causes:
 
 On CasaOS, your `.env` is at `/DATA/AppData/torbox-media-center/.env` and media at `/DATA/Media/torbox/`.
 
-Quick checks:
+Run the diagnostic script:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/killamfkr/zurg-testing/main/scripts/diagnose.sh | sudo bash
+```
+
+Quick manual checks:
 
 ```bash
 ls -la /DATA/Media/torbox/
