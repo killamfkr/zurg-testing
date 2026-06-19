@@ -1,31 +1,64 @@
-# TorBox Media Center + Plex
+# TorBox Media Server for CasaOS
 
-A Docker setup to mount your [TorBox](https://torbox.app/) library as a virtual filesystem for Plex, Jellyfin, Emby, Infuse, and other media players. This replaces the previous Real-Debrid + zurg + rclone stack with [TorBox Media Center](https://github.com/torbox-app/torbox-media-center), TorBox's official mounting solution.
+One-command installers for [TorBox](https://torbox.app/) on Ubuntu with [CasaOS](https://github.com/IceWhaleTech/CasaOS).
 
-## Why TorBox Media Center instead of zurg?
+## Recommended: all-in-one complete stack
 
-[zurg](https://github.com/debridmediamanager/zurg-testing) is built specifically for Real-Debrid and does not support TorBox. TorBox Media Center is the official alternative and provides:
+Installs everything and wires it together automatically:
 
-- Native TorBox support (torrents, usenet, and web downloads)
-- No rclone or custom WebDAV server required
-- Automatic organization into `movies/` and `series/` folders
-- FUSE virtual filesystem for Plex, or STRM files for Jellyfin/Emby
+**Plex** · **Seerr** (request movies/TV) · **Radarr** · **Sonarr** · **Prowlarr** · **Decypharr** (TorBox bridge) · **Byparr**
 
-## One-line install (Ubuntu + CasaOS)
+Based on [nordicnode/TorBox-Media-Server](https://github.com/nordicnode/TorBox-Media-Server) — request a movie in Seerr, TorBox caches it, Plex streams it. No local storage.
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/killamfkr/zurg-testing/main/install-full.sh | sudo TORBOX_API_KEY=your_api_key_here bash
+```
+
+Optional Plex claim token (links Plex to your account on first boot):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/killamfkr/zurg-testing/main/install-full.sh | sudo TORBOX_API_KEY=your_key TORBOX_PLEX_CLAIM=claim-xxxxx bash
+```
+
+Get a claim token at [plex.tv/claim](https://www.plex.tv/claim/) (expires in 4 minutes).
+
+### After install — open these URLs
+
+| Service | URL | Purpose |
+| --- | --- | --- |
+| Seerr | `http://YOUR-IP:5055` | Browse and request movies/TV |
+| Plex | `http://YOUR-IP:32400/web` | Watch your library |
+| Radarr | `http://YOUR-IP:7878` | Movie automation |
+| Sonarr | `http://YOUR-IP:8989` | TV automation |
+| Prowlarr | `http://YOUR-IP:9696` | Torrent indexers |
+| Decypharr | `http://YOUR-IP:8282` | TorBox download bridge |
+
+Manage the stack:
+
+```bash
+torbox-media-server status
+torbox-media-server restart
+torbox-media-server logs
+cd /DATA/AppData/torbox-media-server-src/torbox-media-server && ./manage.sh keys
+```
+
+Install location: `/DATA/AppData/torbox-media-server-src/torbox-media-server`
+
+---
+
+## Simple mount only (not recommended)
+
+The lightweight installer only mounts existing TorBox files. It has known issues with CasaOS FUSE and metadata rate limits. Use the **all-in-one** installer above instead.
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/killamfkr/zurg-testing/main/install.sh | sudo TORBOX_API_KEY=your_api_key_here bash
 ```
 
-Replace `your_api_key_here` with your key from [torbox.app/settings](https://torbox.app/settings).
+---
 
-The script installs TorBox Media Center under `/DATA/AppData/torbox-media-center` and mounts media at `/DATA/Media/torbox` (CasaOS defaults). Point Plex at `/DATA/Media/torbox/movies` and `/DATA/Media/torbox/series`.
+## Legacy: TorBox Media Center only
 
-To install CasaOS first if it is missing:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/killamfkr/zurg-testing/main/install.sh | sudo INSTALL_CASAOS=1 TORBOX_API_KEY=your_api_key_here bash
-```
+A Docker setup to mount your TorBox library for Plex using [TorBox Media Center](https://github.com/torbox-app/torbox-media-center).
 
 ## Quick start with Docker (Plex)
 
