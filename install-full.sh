@@ -9,6 +9,25 @@ UPSTREAM_BRANCH="${UPSTREAM_BRANCH:-main}"
 log() { printf '\n==> %s\n' "$*"; }
 die() { printf 'Error: %s\n' "$*" >&2; exit 1; }
 
+apt_safe_update() {
+  export DEBIAN_FRONTEND=noninteractive
+  # Broken third-party repos (e.g. deb.libre.computer expired GPG) kill apt update on some CasaOS boxes.
+  for broken in /etc/apt/sources.list.d/librecomputer.list /etc/apt/sources.list.d/librecomputer.list.save; do
+    if [[ -f "$broken" ]]; then
+      mv "$broken" "${broken}.disabled" 2>/dev/null || true
+      log "Disabled broken apt repo: $(basename "$broken")"
+    fi
+  done
+  apt-get update -qq 2>/dev/null || apt-get update -qq --allow-releaseinfo-change 2>/dev/null || true
+}
+
+apt_safe_install() {
+  apt_safe_update
+  apt-get install -y -qq "$@" 2>/dev/null \
+    || apt-get install -y "$@" \
+    || die "Failed to install packages: $*"
+}
+
 if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
   die 'Run as root: curl -fsSL .../install-full.sh | sudo TORBOX_API_KEY=your_key bash'
 fi
@@ -38,10 +57,8 @@ fi
 INSTALL_DIR="${SRC_DIR}/torbox-media-server"
 
 log "Preparing system for ${REAL_USER}"
-export DEBIAN_FRONTEND=noninteractive
-apt-get update -qq
-apt-get install -y -qq git curl ca-certificates fuse3 jq openssl >/dev/null 2>&1 \
-  || apt-get install -y -qq git curl ca-certificates fuse jq openssl >/dev/null
+apt_safe_install git curl ca-certificates jq openssl
+apt-get install -y -qq fuse3 2>/dev/null || apt-get install -y -qq fuse 2>/dev/null || true
 modprobe fuse 2>/dev/null || true
 
 if ! command -v docker >/dev/null 2>&1; then
@@ -74,13 +91,20 @@ fi
 chmod +x "$SRC_DIR/setup.sh"
 
 log "Running full stack setup (this takes several minutes)"
-sudo -u "$REAL_USER" env \
+set +e
+setup_output=$(sudo -u "$REAL_USER" env \
   TORBOX_API_KEY="${TORBOX_API_KEY}" \
   TORBOX_MEDIA_SERVER="${TORBOX_MEDIA_SERVER:-plex}" \
   TORBOX_PLEX_CLAIM="${TORBOX_PLEX_CLAIM:-}" \
   TORBOX_MOUNT_DIR="${MOUNT_DIR}" \
   TORBOX_START_SERVICES=true \
-  bash -c "cd '$SRC_DIR' && ./setup.sh --yes"
+  bash -c "cd '$SRC_DIR' && ./setup.sh --yes" 2>&1)
+setup_status=$?
+set -e
+if [[ $setup_status -ne 0 ]]; then
+  printf '%s\n' "$setup_output" | tail -30
+  die "setup.sh failed (exit $setup_status). See output above."
+fi
 
 [[ -f "$INSTALL_DIR/docker-compose.yml" ]] || die "Setup failed — $INSTALL_DIR/docker-compose.yml not found"
 
