@@ -47,8 +47,8 @@ All settings live in `.env`. See `.env.example` for the available options.
 | `MOUNT_METHOD` | `fuse` for Plex/VLC/Infuse, `strm` for Jellyfin/Emby | `fuse` |
 | `MOUNT_PATH` | Path inside the container | `/torbox` |
 | `MOUNT_HOST_PATH` | Host path exposed to Plex | `/DATA/Media/torbox` on CasaOS, `/mnt/torbox` otherwise |
-| `ENABLE_METADATA` | Organize files into movies/series folders | `true` |
-| `MOUNT_REFRESH_TIME` | Refresh interval: `slowest` (24h) to `instant` (6min) | `fast` (2h) |
+| `ENABLE_METADATA` | Split TV into `series/` via metadata API | `false` (all videos go to `movies/`) |
+| `MOUNT_REFRESH_TIME` | Refresh interval: `slowest` (24h) to `instant` (6min) | `normal` (3h) |
 
 ### FUSE vs STRM
 
@@ -103,6 +103,37 @@ sudo systemctl enable --now torbox-media-center
 | `on_library_update` hook | Scheduled Plex scans or automatic Plex scanning |
 
 ## Troubleshooting
+
+### Empty `movies` or `series` folders
+
+Yes, files **should** appear — but only if you already have **playable, cached videos** in your TorBox account at [torbox.app](https://torbox.app). The installer does not download anything by itself.
+
+Common causes:
+
+1. **Nothing cached on TorBox yet** — Add and cache torrents/downloads on TorBox first. Empty account = empty folders.
+2. **First sync still running** — Check progress:
+   ```bash
+   docker logs -f torbox-media-center
+   ```
+   Force a refresh:
+   ```bash
+   docker restart torbox-media-center
+   ```
+3. **Wrong folder name** — TV shows go in `series/`, not `tv/`.
+4. **Metadata scanning issues** — Our default is `ENABLE_METADATA=false`, which puts **all** videos in `movies/` and leaves `series/` empty. To split movies vs TV, set `ENABLE_METADATA=true` in `.env` and restart (can be slow and hit API rate limits).
+5. **Bad API key** — Regenerate at [torbox.app/settings](https://torbox.app/settings), update `.env`, then restart.
+
+On CasaOS, your `.env` is at `/DATA/AppData/torbox-media-center/.env` and media at `/DATA/Media/torbox/`.
+
+Quick checks:
+
+```bash
+ls -la /DATA/Media/torbox/
+ls -la /DATA/Media/torbox/movies/
+docker logs --tail 50 torbox-media-center
+```
+
+### Other issues
 
 Check container logs:
 

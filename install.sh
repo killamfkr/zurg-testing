@@ -55,9 +55,9 @@ cat > "$APP_DIR/.env" <<EOF
 TORBOX_API_KEY=${TORBOX_API_KEY}
 MOUNT_METHOD=${MOUNT_METHOD:-fuse}
 MOUNT_PATH=/torbox
-ENABLE_METADATA=${ENABLE_METADATA:-true}
+ENABLE_METADATA=${ENABLE_METADATA:-false}
 RAW_MODE=false
-MOUNT_REFRESH_TIME=${MOUNT_REFRESH_TIME:-fast}
+MOUNT_REFRESH_TIME=${MOUNT_REFRESH_TIME:-normal}
 MOUNT_HOST_PATH=${MOUNT_HOST_PATH}
 EOF
 
@@ -77,6 +77,9 @@ cd "$APP_DIR"
 log "Installation complete"
 echo
 echo "Media mount: $MOUNT_HOST_PATH"
-echo "Plex folders:  $MOUNT_HOST_PATH/movies and $MOUNT_HOST_PATH/series"
-echo "Check status:  cd $APP_DIR && ${COMPOSE[*]} ps"
-echo "View logs:     cd $APP_DIR && ${COMPOSE[*]} logs -f"
+echo "Plex movies:   $MOUNT_HOST_PATH/movies"
+echo "Plex TV shows: $MOUNT_HOST_PATH/series  (only populated when ENABLE_METADATA=true)"
+echo
+echo "Note: folders stay empty until you have playable videos cached in TorBox."
+echo "Force first sync:  cd $APP_DIR && ${COMPOSE[*]} restart"
+echo "Check logs:        cd $APP_DIR && ${COMPOSE[*]} logs -f"
