@@ -106,15 +106,40 @@ sudo systemctl enable --now torbox-media-center
 
 ### Metadata rate-limit loop (429 / retrying)
 
-TorBox's metadata API rate-limits heavily. If logs show `Metadata scanning is enabled` or `429` / `Retrying`, run:
+TorBox's metadata API rate-limits heavily. If logs show `429` or `Retrying`, set `ENABLE_METADATA=false` and restart.
+
+### "Metadata scanning is enabled" but CasaOS shows false
+
+**This is a bug in TorBox Media Center.** In their source code, that warning prints on every startup unless both metadata and raw mode are enabled together. It does **not** mean your setting was ignored.
+
+Verify the real value inside the running container:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/killamfkr/zurg-testing/main/scripts/fix.sh | sudo bash
+docker exec torbox-media-center printenv ENABLE_METADATA
 ```
 
-This disables metadata scanning, recreates the container, and verifies the mount. All videos will appear in `movies/`.
+If it prints `false`, metadata is off — ignore the startup warning.
 
-If CasaOS still shows metadata enabled after running the fix, open **torbox-media-center → Settings → Environment** in CasaOS, set `ENABLE_METADATA=false`, save, and restart.
+### Files inside container but empty on host (CasaOS FUSE issue)
+
+FUSE mounts often work inside the Docker container but do not propagate to the host path CasaOS shows you. Check both:
+
+```bash
+docker exec torbox-media-center ls /torbox/movies/
+ls /DATA/Media/torbox/movies/
+```
+
+If the first has files but the second is empty, fix the CasaOS volume to use `:rshared`:
+
+```
+/DATA/Media/torbox:/torbox:rshared
+```
+
+Run the CasaOS-specific fix:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/killamfkr/zurg-testing/main/scripts/fix-casaos.sh | sudo bash
+```
 
 ### Empty `movies` or `series` folders
 
