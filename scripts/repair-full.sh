@@ -27,6 +27,9 @@ mv "$TMP" "$ENV_FILE"
 chmod 600 "$ENV_FILE"
 chown "${REAL_USER}:${REAL_USER}" "$ENV_FILE" 2>/dev/null || true
 
+echo "==> Fixing Docker image tags"
+sed -i 's|ghcr.io/thephaseless/byparr:v1\.0\.0|ghcr.io/thephaseless/byparr:2.1.0|g' "${INSTALL_DIR}/docker-compose.yml"
+
 echo "==> Opening ports on LAN"
 sed -i -E 's/"127\.0\.0\.1:([0-9]+):\1"/"\1:\1"/g' "${INSTALL_DIR}/docker-compose.yml"
 

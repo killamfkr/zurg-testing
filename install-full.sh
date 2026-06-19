@@ -115,6 +115,9 @@ else
 fi
 chmod +x "$SRC_DIR/setup.sh"
 
+# nordicnode pins byparr:v1.0.0 which no longer exists on ghcr.io
+sed -i 's|ghcr.io/thephaseless/byparr:v1\.0\.0|ghcr.io/thephaseless/byparr:2.1.0|g' "$SRC_DIR/docker-compose.yml"
+
 log "Running full stack setup (this takes several minutes)"
 set +e
 sudo -u "$REAL_USER" env \
