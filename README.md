@@ -114,7 +114,11 @@ curl -fsSL https://raw.githubusercontent.com/killamfkr/zurg-testing/main/scripts
 
 This disables metadata scanning, recreates the container, and verifies the mount. All videos will appear in `movies/`.
 
-Yes, files **should** appear — but only if you already have **playable, cached videos** in your TorBox account at [torbox.app](https://torbox.app). The installer does not download anything by itself.
+If CasaOS still shows metadata enabled after running the fix, open **torbox-media-center → Settings → Environment** in CasaOS, set `ENABLE_METADATA=false`, save, and restart.
+
+### Empty `movies` or `series` folders
+
+Files **should** appear if you have playable, cached videos in your TorBox account at [torbox.app](https://torbox.app).
 
 Common causes:
 
