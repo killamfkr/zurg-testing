@@ -104,7 +104,15 @@ sudo systemctl enable --now torbox-media-center
 
 ## Troubleshooting
 
-### Empty `movies` or `series` folders
+### Metadata rate-limit loop (429 / retrying)
+
+TorBox's metadata API rate-limits heavily. If logs show `Metadata scanning is enabled` or `429` / `Retrying`, run:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/killamfkr/zurg-testing/main/scripts/fix.sh | sudo bash
+```
+
+This disables metadata scanning, recreates the container, and verifies the mount. All videos will appear in `movies/`.
 
 Yes, files **should** appear — but only if you already have **playable, cached videos** in your TorBox account at [torbox.app](https://torbox.app). The installer does not download anything by itself.
 
