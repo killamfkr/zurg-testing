@@ -44,4 +44,5 @@ fi
 IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
 echo
 echo "Done. Open http://${IP:-localhost}:5055 (Seerr) or http://${IP:-localhost}:32400/web (Plex)"
-echo "Passwords: cd ${INSTALL_DIR} && ./manage.sh keys"
+echo "==> Decypharr still failing? Run:"
+echo "  curl -fsSL https://raw.githubusercontent.com/killamfkr/zurg-testing/main/scripts/fix-decypharr.sh | sudo bash"

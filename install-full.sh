@@ -45,6 +45,9 @@ sanitize_env_file() {
 
 start_stack() {
   sanitize_env_file "${INSTALL_DIR}/.env"
+  ensure_mount_propagation "${MOUNT_DIR}"
+  mkdir -p "${INSTALL_DIR}/configs/decypharr" "${DATA_DIR:-${INSTALL_DIR}/data}"
+  chown -R "${REAL_USER}:${REAL_USER}" "${MOUNT_DIR}" "${INSTALL_DIR}/configs/decypharr" 2>/dev/null || true
   if [[ -x "${INSTALL_DIR}/manage.sh" ]]; then
     sudo -u "$REAL_USER" bash -c "cd '${INSTALL_DIR}' && ./manage.sh restart" \
       || sudo -u "$REAL_USER" bash -c "cd '${INSTALL_DIR}' && docker compose --env-file .env up -d"
@@ -116,7 +119,11 @@ fi
 chmod +x "$SRC_DIR/setup.sh"
 
 # nordicnode pins byparr:v1.0.0 which no longer exists on ghcr.io
-sed -i 's|ghcr.io/thephaseless/byparr:v1\.0\.0|ghcr.io/thephaseless/byparr:2.1.0|g' "$SRC_DIR/docker-compose.yml"
+sed -i \
+  -e 's|ghcr.io/thephaseless/byparr:v1\.0\.0|ghcr.io/thephaseless/byparr:2.1.0|g' \
+  -e 's|ghcr.io/sirrobot01/decypharr:v2\.0|ghcr.io/sirrobot01/decypharr:v2.3|g' \
+  -e 's|${CONFIG_DIR}/decypharr/config.json:/app/config.json|${CONFIG_DIR}/decypharr:/app|g' \
+  "$SRC_DIR/docker-compose.yml"
 
 log "Running full stack setup (this takes several minutes)"
 set +e
@@ -137,6 +144,47 @@ fi
 
 log "Fixing .env and starting services"
 sanitize_env_file "${INSTALL_DIR}/.env"
+
+log "Fixing Docker image tags"
+sed -i \
+  -e 's|ghcr.io/thephaseless/byparr:v1\.0\.0|ghcr.io/thephaseless/byparr:2.1.0|g' \
+  -e 's|ghcr.io/sirrobot01/decypharr:v2\.0|ghcr.io/sirrobot01/decypharr:v2.3|g' \
+  "$INSTALL_DIR/docker-compose.yml"
+sed -i 's|${CONFIG_DIR}/decypharr/config.json:/app/config.json|${CONFIG_DIR}/decypharr:/app|g' "$INSTALL_DIR/docker-compose.yml"
+
+cat >"${INSTALL_DIR}/docker-compose.override.yml" <<'EOF'
+services:
+  decypharr:
+    healthcheck:
+      disable: true
+  byparr:
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8191/health || wget -qO- http://localhost:8191/health || exit 1"]
+      interval: 15s
+      timeout: 15s
+      retries: 10
+      start_period: 120s
+  radarr:
+    depends_on:
+      decypharr:
+        condition: service_started
+  sonarr:
+    depends_on:
+      decypharr:
+        condition: service_started
+  plex:
+    depends_on:
+      decypharr:
+        condition: service_started
+EOF
+
+ensure_mount_propagation() {
+  local mount_dir="$1"
+  mkdir -p "$mount_dir"
+  fusermount -uz "$mount_dir" 2>/dev/null || true
+  findmnt -n "$mount_dir" >/dev/null 2>&1 || mount --bind "$mount_dir" "$mount_dir"
+  mount --make-shared "$mount_dir" 2>/dev/null || true
+}
 
 log "Opening services on LAN (CasaOS default)"
 sed -i -E 's/"127\.0\.0\.1:([0-9]+):\1"/"\1:\1"/g' "$INSTALL_DIR/docker-compose.yml"
